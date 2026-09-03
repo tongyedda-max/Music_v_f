@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#05060a">
+<title>聲音之花</title>
+<style>
+  *{box-sizing:border-box;touch-action:manipulation}
+  html,body{margin:0;height:100%;background:#05060a;overflow:hidden;
+    font-family:-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif;color:#cfd6e4;
+    -webkit-tap-highlight-color:transparent;user-select:none}
+  #stage{position:fixed;inset:0;display:block}
+  #vid{position:fixed;inset:0;width:100%;height:100%;z-index:5;display:none;background:#000;object-fit:cover}
+  #vid.small{display:block;width:min(62vw,320px);height:auto;aspect-ratio:16/9;
+    left:auto;top:auto;right:10px;bottom:150px;border-radius:12px;
+    border:1px solid #2a3550;box-shadow:0 6px 24px rgba(0,0,0,.55)}
+  #vid.bg{display:block;opacity:.22;filter:saturate(1.15);pointer-events:none}
+  #startScreen{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:10px;text-align:center;
+    background:radial-gradient(ellipse at 50% 40%,#101528 0%,#05060a 70%);padding:20px;overflow:auto}
+  #startScreen h1{font-size:26px;margin:0;color:#fff;letter-spacing:2px}
+  #startScreen p{margin:0;font-size:12px;line-height:1.6;color:#9aa6bf;max-width:350px}
+  .bigBtn{display:flex;flex-direction:column;align-items:center;gap:4px;
+    width:270px;padding:11px;border-radius:16px;border:1px solid #2a3550;
+    background:linear-gradient(160deg,#1a2340,#10182e);color:#fff;font-size:15px;cursor:pointer}
+  .bigBtn:active{transform:scale(.96)}
+  .bigBtn small{font-size:10px;color:#8fa0c5;line-height:1.4}
+
+  .panel{position:fixed;z-index:12;display:none;background:rgba(8,10,18,.75);
+    border:1px solid rgba(150,170,220,.32);border-radius:14px;
+    backdrop-filter:blur(6px);box-shadow:0 4px 20px rgba(0,0,0,.5);min-width:200px}
+  .phead{display:flex;align-items:center;gap:6px;padding:6px 8px;cursor:move;
+    border-bottom:1px solid rgba(120,140,190,.18);touch-action:none;user-select:none}
+  .grip{color:#7fa8ff;font-size:12px}
+  .ptitle{flex:1;font-size:11px;color:#9fb0d0;letter-spacing:1px}
+  .pclose{padding:2px 8px;border-radius:8px;border:1px solid #2a3550;
+    background:#161e33;color:#dbe4f5;font-size:11px;cursor:pointer}
+  .pbody{padding:8px 12px 10px}
+  .panel.collapsed .pbody{display:none}
+
+  #hud{top:10px;left:10px;min-width:250px}
+  #qualPanel{top:10px;left:50%;transform:translateX(-50%)}
+  #micPanel{bottom:120px;left:50%;transform:translateX(-50%)}
+  #tunerPanel{right:10px;bottom:78px;width:190px}
+  #legend{top:10px;right:10px;min-width:170px}
+  #transport{left:50%;bottom:62px;transform:translateX(-50%)}
+
+  .meterRow{display:flex;align-items:center;gap:6px;margin:4px 0}
+  .meterLabel{width:36px;color:#9fb0d0;flex:none;font-size:11px}
+  .meterBar{flex:1;height:6px;background:rgba(255,255,255,.09);border-radius:3px;overflow:hidden}
+  .meterFill{height:100%;width:0%;border-radius:3px;background:linear-gradient(90deg,#3a7bd5,#9be15d)}
+  .meterVal{color:#e8edf7;flex:none;font-size:11px;font-variant-numeric:tabular-nums;text-align:right}
+  #vDyn,#vVib,#vTim,#vAtt,#vGrip{width:118px}
+  #vibWave{width:100%;height:22px;display:block;margin:2px 0 4px;
+    background:rgba(255,255,255,.04);border-radius:4px}
+  #noteLine{color:#ffd98a;margin-top:5px;font-size:11px}
+  #dynLine,#relLine{color:#8fa0c5;font-size:10px;line-height:1.5}
+  #relLine{color:#9be15d;margin-top:4px}
+
+  .qRow{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:11px}
+  .qLeft,.qRight{width:32px;color:#8fa0c5;flex:none}
+  .qRight{text-align:right}
+  .qBar{flex:1;height:7px;background:rgba(255,255,255,.08);border-radius:4px;position:relative}
+  .qDot{position:absolute;top:50%;transform:translate(-50%,-50%);
+    width:13px;height:13px;border-radius:50%;background:#fff;
+    box-shadow:0 0 8px rgba(255,255,255,.7);transition:left .15s ease;left:50%}
+  .qVal{width:44px;text-align:center;flex:none;font-size:11px;font-weight:600;
+    color:#ffd98a;letter-spacing:.5px}
+  #qualSummary{margin-top:7px;padding-top:7px;border-top:1px solid rgba(120,140,190,.2);
+    font-size:12px;text-align:center;color:#e8edf7;line-height:1.5}
+
+  #micStatus{font-size:13px;font-weight:600;text-align:center;line-height:1.5;
+    margin-bottom:7px;color:#8fa0c5}
+  .mRow{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:11px}
+  .mL{width:32px;color:#9fb0d0;flex:none}
+  .mBar{flex:1;height:6px;background:rgba(255,255,255,.09);border-radius:3px;position:relative}
+  .mFill{height:100%;width:0%;border-radius:3px;background:#7fa8ff;transition:width .2s}
+  .mDot{position:absolute;top:50%;transform:translate(-50%,-50%);left:50%;
+    width:11px;height:11px;border-radius:50%;background:#9be15d;
+    box-shadow:0 0 7px rgba(155,225,93,.8);transition:left .2s}
+  .mBar::after{content:'';position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;
+    background:rgba(255,255,255,.35)}
+  .mV{width:64px;text-align:right;color:#cfd6e4;flex:none;font-size:10px;font-variant-numeric:tabular-nums}
+
+  #tNote{font-size:50px;font-weight:700;color:#8fa0c5;line-height:1;
+    text-shadow:0 0 24px rgba(255,255,255,.15)}
+  #tFreq{font-size:10px;color:#cfd6e4;margin-top:3px;font-variant-numeric:tabular-nums;line-height:1.3}
+  #tCents{font-size:20px;font-weight:600;color:#ffd98a;margin-top:1px;font-variant-numeric:tabular-nums}
+  #tMeter{position:relative;height:12px;border-radius:6px;margin:7px auto 3px;width:100%;
+    background:linear-gradient(90deg,
+      rgba(255,110,110,.4) 0%,rgba(255,110,110,.4) 33%,
+      rgba(255,216,138,.45) 36%,rgba(255,216,138,.45) 44%,
+      rgba(155,225,93,.5) 46%,rgba(155,225,93,.5) 54%,
+      rgba(255,216,138,.45) 56%,rgba(255,216,138,.45) 64%,
+      rgba(255,110,110,.4) 67%,rgba(255,110,110,.4) 100%)}
+  #tMeter::after{content:'';position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;
+    background:rgba(255,255,255,.8);border-radius:1px}
+  #tNeedle{position:absolute;top:50%;transform:translate(-50%,-50%);left:50%;
+    width:14px;height:14px;border-radius:50%;background:#fff;
+    box-shadow:0 0 9px rgba(255,255,255,.9);transition:left .1s linear}
+  #tStatus{font-size:10px;color:#8fa0c5;margin-top:3px;line-height:1.4;font-weight:600}
+  .a4label{font-size:11px;color:#9fb0d0;margin-top:8px;text-align:center}
+  .a4label b{color:#fff;font-variant-numeric:tabular-nums}
+  .a4presets{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:5px}
+  .a4presets button{padding:5px 0;border-radius:8px;border:1px solid #2a3550;
+    background:#141a2c;color:#9fb0d0;font-size:11px;cursor:pointer}
+  .a4presets button.act{background:#2a4a2a;border-color:#4a8a4a;color:#b6f5b6;font-weight:700}
+  #a4{width:100%;margin-top:5px;accent-color:#7f9cff}
+  .a4hint{font-size:9px;color:#5d6b8a;margin-top:3px;line-height:1.4;text-align:center}
+
+  #legendBar{width:100%;height:8px;border-radius:4px;margin-top:4px;
+    background:linear-gradient(90deg,hsl(265,80%,60%),hsl(210,75%,60%),hsl(170,70%,55%),
+    hsl(110,65%,55%),hsl(55,85%,60%),hsl(25,90%,60%),hsl(10,60%,72%))}
+  #legend .pbody span{font-size:9px;color:#8fa0c5;display:block;text-align:left;line-height:1.6}
+  #legend .pbody b{color:#cfd6e4;font-weight:600}
+
+  #ui{position:fixed;left:0;right:0;bottom:0;z-index:10;display:none;flex-wrap:wrap;
+    gap:8px;justify-content:center;align-items:center;padding:10px;
+    background:linear-gradient(to top,rgba(0,0,0,.7),transparent)}
+  #ui button{padding:9px 13px;border-radius:12px;border:1px solid #2a3550;
+    background:rgba(16,22,40,.85);color:#dbe4f5;font-size:13px;cursor:pointer}
+  #btnBack{background:#3a1e28 !important;border-color:#7a3a4a !important}
+  #btnTuner.on{background:#2a4a2a !important;border-color:#4a8a4a !important;color:#b6f5b6 !important}
+  #sensWrap{display:flex;align-items:center;gap:6px;font-size:12px;color:#9fb0d0;
+    background:rgba(16,22,40,.85);padding:6px 10px;border-radius:12px;border:1px solid #2a3550}
+  #sens{width:110px;accent-color:#7f9cff}
+
+  #transport .pbody{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center}
+  #transport button{padding:8px 10px;border-radius:10px;border:1px solid #2a3550;
+    background:#161e33;color:#dbe4f5;font-size:12px;cursor:pointer}
+  #tTime{color:#dbe4f5;font-size:12px;padding:0 4px;font-variant-numeric:tabular-nums}
+
+  #fileInput{display:none}
+  #toast{position:fixed;left:50%;bottom:95px;transform:translateX(-50%);z-index:80;
+    background:rgba(20,24,40,.95);border:1px solid #3a4767;color:#e8edf7;
+    padding:10px 16px;border-radius:12px;font-size:13px;display:none;max-width:86vw;text-align:center}
+
+  #dlMenu{position:fixed;inset:0;z-index:60;display:none;align-items:center;
+    justify-content:center;background:rgba(5,6,10,.85);padding:20px}
+  #dlBox{background:#0d1322;border:1px solid #2a3550;border-radius:16px;padding:16px;
+    width:min(92vw,370px);max-height:82vh;overflow:auto}
+  .dltip{font-size:11px;color:#8fa0c5;margin:6px 0;line-height:1.6}
+  .dlSec{font-size:11px;color:#7fa8ff;margin:12px 0 4px;letter-spacing:1px}
+  .dlItem{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:12px;
+    border:1px solid #2a3550;background:#141a2c;color:#dbe4f5;font-size:14px;
+    margin:6px 0;cursor:pointer}
+  .dlItem:active{background:#1c2540}
+  .dlItem small{display:block;color:#8fa0c5;font-size:10px;margin-top:3px;line-height:1.4}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<video id="vid" playsinline></video>
+
+<div id="startScreen">
+  <h1>🌸 聲音之花</h1>
+  <p>力度→大小｜音高→顏色｜軟硬→瓣形｜圓刺→邊緣<br>
+     虛實→濃淡虛實線｜溫暖明亮→花心色｜揉音→閃爍｜起音→漣漪<br>
+     起音能量通量偵測｜揉音 45Hz 採樣｜調音器全模式可用<br>
+     <b style="color:#7fa8ff">所有面板所有模式都會顯示</b></p>
+  <button class="bigBtn" id="btnMic">🎤 麥克風模式<small>自己拉琴，即時視覺化＋健檢＋調音器</small></button>
+  <button class="bigBtn" id="btnFile">🎬 開本地檔案<small>手機裡的影片或音檔</small></button>
+  <button class="bigBtn" id="btnYt">⬇️ 從 YouTube 下載 ▾<small>線上工具／App／iPhone 捷徑</small></button>
+  <button class="bigBtn" id="btnTab">🖥 分頁聲音（電腦版 Chrome）<small>直接吃 YouTube 分頁音訊</small></button>
+</div>
+
+<div class="panel" id="hud" data-key="hud">
+  <div class="phead"><span class="grip">⠿</span><span class="ptitle">📊 數據</span><button class="pclose">✕</button></div>
+  <div class="pbody">
+    <div class="meterRow"><span class="meterLabel">力度</span><div class="meterBar"><div class="meterFill" id="mDyn"></div></div><span class="meterVal" id="vDyn">–</span></div>
+    <div class="meterRow"><span class="meterLabel">揉音</span><div class="meterBar"><div class="meterFill" id="mVib"></div></div><span class="meterVal" id="vVib">–</span></div>
+    <canvas id="vibWave" width="220" height="30"></canvas>
+    <div class="meterRow"><span class="meterLabel">音色</span><div class="meterBar"><div class="meterFill" id="mTim"></div></div><span class="meterVal" id="vTim">–</span></div>
+    <div class="meterRow"><span class="meterLabel">起音</span><div class="meterBar"><div class="meterFill" id="mAtt"></div></div><span class="meterVal" id="vAtt">–</span></div>
+    <div class="meterRow"><span class="meterLabel">抓弦</span><div class="meterBar"><div class="meterFill" id="mGrip"></div></div><span class="meterVal" id="vGrip">–</span></div>
+    <div id="noteLine">♪ –</div>
+    <div id="dynLine">力度模式 –</div>
+    <div id="relLine">–</div>
+  </div>
+</div>
+
+<div class="panel" id="qualPanel" data-key="qual">
+  <div class="phead"><span class="grip">⠿</span><span class="ptitle">✦ 質感 ✦</span><button class="pclose">✕</button></div>
+  <div class="pbody">
+    <div class="qRow"><span class="qLeft">溫暖</span><div class="qBar"><div class="qDot" id="dotTemp"></div></div><span class="qRight">明亮</span><span class="qVal" id="valTemp">–</span></div>
+    <div class="qRow"><span class="qLeft">軟</span><div class="qBar"><div class="qDot" id="dotHard"></div></div><span class="qRight">硬</span><span class="qVal" id="valHard">–</span></div>
+    <div class="qRow"><span class="qLeft">圓</span><div class="qBar"><div class="qDot" id="dotRough"></div></div><span class="qRight">刺</span><span class="qVal" id="valRough">–</span></div>
+    <div class="qRow"><span class="qLeft">虛</span><div class="qBar"><div class="qDot" id="dotSolid"></div></div><span class="qRight">實</span><span class="qVal" id="valSolid">–</span></div>
+    <div id="qualSummary">待偵測…</div>
+  </div>
+</div>
+
+<div class="panel" id="micPanel" data-key="mic">
+  <div class="phead"><span class="grip">⠿</span><span class="ptitle">🩺 音訊健檢</span><button class="pclose">✕</button></div>
+  <div class="pbody">
+    <div id="micStatus">🩺 等待聲音…</div>
+    <div class="mRow"><span class="mL">訊號</span><div class="mBar"><div class="mFill" id="mFillLv"></div></div><span class="mV" id="mVLv">–</span></div>
+    <div class="mRow"><span class="mL">破音</span><div class="mBar"><div class="mFill" id="mFillClip"></div></div><span class="mV" id="mVClip">0%</span></div>
+    <div class="mRow"><span class="mL">底噪</span><div class="mBar"><div class="mFill" id="mFillNoise"></div></div><span class="mV" id="mVNoise">–</span></div>
+    <div class="mRow"><span class="mL">引擎</span><div class="mBar"><div class="mFill" id="mFillEng"></div></div><span class="mV" id="mVEng">–</span></div>
+    <div class="mRow" id="rowBal" style="display:none"><span class="mL">左右</span><div class="mBar"><div class="mDot" id="balDot"></div></div><span class="mV" id="mVBal">偵測中</span></div>
+  </div>
+</div>
+
+<div class="panel" id="tunerPanel" data-key="tuner">
+  <div class="phead"><span class="grip">⠿</span><span class="ptitle">🎻 調音器</span><button class="pclose">✕</button></div>
+  <div class="pbody">
+    <div id="tNote">–</div>
+    <div id="tFreq">靠近一點，拉長音</div>
+    <div id="tCents">–</div>
+    <div id="tMeter"><div id="tNeedle"></div></div>
+    <div id="tStatus">等音高穩定</div>
+    <div class="a4label">A4 基準 = <b id="a4v">440</b> Hz</div>
+    <div class="a4presets">
+      <button data-a4="415">415</button><button data-a4="432">432</button>
+      <button data-a4="435">435</button><button data-a4="440">440</button>
+      <button data-a4="442">442</button><button data-a4="443">443</button>
+      <button data-a4="444">444</button>
+    </div>
+    <input type="range" id="a4" min="415" max="466" step="1" value="440">
+    <div class="a4hint">巴洛克 415｜ISO 440｜歐洲樂團 442<br>其他：拖滑桿自訂 415–466</div>
+  </div>
+</div>
+
+<div class="panel" id="legend" data-key="legend">
+  <div class="phead"><span class="grip">⠿</span><span class="ptitle">🎨 花語對照</span><button class="pclose">✕</button></div>
+  <div class="pbody">
+    <span><b>大小·旋轉</b>＝力度</span>
+    <span><b>花瓣長度</b>＝頻譜　<b>顏色</b>＝音高</span>
+    <span><b>瓣形</b>＝軟(圓寬)↔硬(窄尖)</span>
+    <span><b>邊緣</b>＝圓(平滑)↔刺(鋸齒)</span>
+    <span><b>濃淡·虛線</b>＝虛(淡·虛線)↔實(濃·實線)</span>
+    <span><b>花心色</b>＝溫暖(琥珀)↔明亮(冰藍)</span>
+    <span><b>閃爍</b>＝揉音　<b>漣漪·瞬亮</b>＝起音</span>
+    <div id="legendBar"></div>
+    <span>低音 ◀ 音高的顏色 ▶ 高音</span>
+  </div>
+</div>
+
+<div class="panel" id="transport" data-key="trans">
+  <div class="phead"><span class="grip">⠿</span><span class="ptitle">⏯ 播放控制</span><button class="pclose">✕</button></div>
+  <div class="pbody">
+    <button id="btnBw">⏪5s</button>
+    <button id="btnPlay">⏸</button>
+    <button id="btnFw">⏩5s</button>
+    <button id="btnA">A</button>
+    <button id="btnB">B</button>
+    <button id="btnClr">✕循環</button>
+    <span id="tTime">0:00 / 0:00</span>
+    <button id="btnVidMode">🖼 小窗</button>
+  </div>
+</div>
+
+<div id="ui">
+  <button id="btnBack">← 上一頁</button>
+  <button id="btnTuner">🎻 調音器</button>
+  <button id="btnStyle">🌊 光河</button>
+  <button id="btnHud">📊 隱藏數據</button>
+  <button id="btnQual">🏷 隱藏質感</button>
+  <button id="btnMicH">🩺 隱藏健檢</button>
+  <button id="btnLegend">🎨 隱藏花語</button>
+  <button id="btnTrans">⏯ 隱藏控制</button>
+  <button id="btnReset">🔧 重置面板</button>
+  <button id="btnFs">⛶ 全螢幕</button>
+  <div id="sensWrap">靈敏<input type="range" id="sens" min="0.4" max="3" step="0.1" value="1.2"></div>
+</div>
+
+<div id="dlMenu">
+  <div id="dlBox">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:15px;color:#fff">⬇️ 從 YouTube 下載</b>
+      <button id="dlClose" style="padding:6px 12px;border-radius:10px;border:1px solid #2a3550;background:#161e33;color:#dbe4f5">✕</button>
+    </div>
+    <p class="dltip">下載完成後回這裡點 🎬 開本地檔案。建議選 Audio（m4a/mp3）。</p>
+    <div class="dlSec">🌐 線上工具（免安裝）</div>
+    <button class="dlItem" data-site="cobalt">cobalt.tools<small>乾淨無廣告；對 YouTube 偶爾故障</small></button>
+    <button class="dlItem" data-site="y2mate">y2mate<small>老牌備用，選 mp3</small></button>
+    <button class="dlItem" data-site="savefrom">savefrom.net<small>再備用</small></button>
+    <div class="dlSec">📱 安裝一次（最穩定）</div>
+    <button class="dlItem" data-site="seal">Seal（Android）<small>開源無廣告：YouTube 分享 → Seal → 音訊</small></button>
+    <button class="dlItem" data-site="ytdlnis">YTDLnis（Android）<small>功能全：播放清單、自訂格式</small></button>
+    <button class="dlItem" data-site="newpipe">NewPipe（Android）<small>輕量 YouTube 用戶端</small></button>
+    <button class="dlItem" data-site="ios">iPhone 捷徑<small>點看設定步驟</small></button>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="audio/*,video/*">
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+function toast(msg,ms=4000){const t=$('toast');t.textContent=msg;t.style.display='block';
+  clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',ms);}
+
+const canvas=$('stage'),ctx=canvas.getContext('2d');
+let W=0,H=0,DPR=1;
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  W=window.innerWidth;H=window.innerHeight;
+  canvas.width=W*DPR;canvas.height=H*DPR;
+  canvas.style.width=W+'px';canvas.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  clampPanels();
+}
+window.addEventListener('resize',resize);resize();
+
+let audioCtx=null,analyser=null,freqData=null,timeData=null,floatFreq=null;
+let micStream=null,micSrc=null,vidEl=null,vidSrcEl=null,tabStream=null,tabSrc=null;
+let running=false,styleMode=0,sensitivity=1.2,curMode='';
+let vidMode=0,loopA=0,loopB=0,tLast=0;
+
+let refA4=parseFloat(localStorage.getItem('refA4'))||440;
+refA4=clamp(refA4,415,466);
+$('a4').value=refA4;$('a4v').textContent=refA4;
+function markPresets(){
+  document.querySelectorAll('.a4presets button').forEach(b=>{
+    b.classList.toggle('act',parseFloat(b.dataset.a4)===refA4);});
+}
+markPresets();
+document.querySelectorAll('.a4presets button').forEach(b=>{
+  b.onclick=()=>{refA4=parseFloat(b.dataset.a4);
+    $('a4').value=refA4;$('a4v').textContent=refA4;
+    localStorage.setItem('refA4',refA4);markPresets();
+    toast('A4 基準 = '+refA4+' Hz');};
+});
+$('a4').oninput=e=>{refA4=parseFloat(e.target.value);
+  $('a4v').textContent=refA4;localStorage.setItem('refA4',refA4);markPresets();};
+
+async function ensureAudio(){
+  if(!audioCtx){
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    analyser=audioCtx.createAnalyser();
+    analyser.fftSize=2048;
+    analyser.smoothingTimeConstant=0.35;
+    freqData=new Uint8Array(analyser.frequencyBinCount);
+    timeData=new Float32Array(analyser.fftSize);
+    floatFreq=new Float32Array(analyser.frequencyBinCount);
+  }
+  if(audioCtx.state==='suspended'){
+    try{await audioCtx.resume();}catch(e){}
+  }
+}
+$('stage').addEventListener('pointerdown',()=>{
+  if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();
+});
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&audioCtx&&audioCtx.state==='suspended')
+    audioCtx.resume();
+});
+function stopMedia(){
+  try{analyser.disconnect();}catch(e){}
+  try{if(vidSrcEl)vidSrcEl.disconnect();}catch(e){}
+  try{if(micSrc)micSrc.disconnect();}catch(e){}
+  try{if(tabSrc)tabSrc.disconnect();}catch(e){}
+  if(tabStream){tabStream.getTracks().forEach(t=>t.stop());tabStream=null;}
+  if(micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null;}
+  if(vidEl)vidEl.pause();
+  micSrc=null;tabSrc=null;micSplit=null;anL=null;anR=null;
+  tunerF=0;tunerClarity=0;
+  loopA=0;loopB=0;$('btnA').textContent='A';$('btnB').textContent='B';
+}
+function ensureMediaEl(){
+  if(!vidEl){
+    vidEl=$('vid');
+    vidSrcEl=audioCtx.createMediaElementSource(vidEl);
+  }
+  vidSrcEl.connect(analyser);
+  analyser.connect(audioCtx.destination);
+}
+
+/* ⭐ 全部面板：所有模式都顯示 */
+const UIState={hud:true,qual:true,mic:true,tuner:false,legend:true,trans:true};
+const PANELCFG={
+  hud:   {el:'hud',        btn:'btnHud',   on:'📊 隱藏數據',off:'📊 顯示數據'},
+  qual:  {el:'qualPanel',  btn:'btnQual',  on:'🏷 隱藏質感',off:'🏷 顯示質感'},
+  mic:   {el:'micPanel',   btn:'btnMicH',  on:'🩺 隱藏健檢',off:'🩺 音訊健檢'},
+  tuner: {el:'tunerPanel', btn:'btnTuner', on:'🎻 關調音器',off:'🎻 調音器'},
+  legend:{el:'legend',     btn:'btnLegend',on:'🎨 隱藏花語',off:'🎨 花語對照'},
+  trans: {el:'transport',  btn:'btnTrans', on:'⏯ 隱藏控制',off:'⏯ 顯示控制'}
+};
+function applyPanel(k){
+  const c=PANELCFG[k],el=$(c.el);
+  el.style.display=(UIState[k]&&running)?'block':'none';
+  $(c.btn).textContent=UIState[k]?c.on:c.off;
+  if(el.style.display==='block'){
+    const r=el.getBoundingClientRect();
+    if(r.left>window.innerWidth-60||r.top>window.innerHeight-60){
+      el.style.left=clamp(r.left,0,Math.max(0,window.innerWidth-80))+'px';
+      el.style.top=clamp(r.top,0,Math.max(0,window.innerHeight-80))+'px';
+      el.style.right='auto';el.style.bottom='auto';el.style.transform='none';
+    }
+  }
+}
+Object.keys(PANELCFG).forEach(k=>{
+  const c=PANELCFG[k];
+  $(c.btn).onclick=()=>{UIState[k]=!UIState[k];applyPanel(k);};
+});
+
+function clampPanels(){
+  ['hud','qualPanel','micPanel','tunerPanel','legend','transport'].forEach(id=>{
+    const p=$(id);if(p.style.display==='none')return;
+    const l=parseFloat(p.style.left),t=parseFloat(p.style.top);
+    if(!isNaN(l))p.style.left=clamp(l,0,window.innerWidth-50)+'px';
+    if(!isNaN(t))p.style.top=clamp(t,0,window.innerHeight-50)+'px';
+  });
+}
+function makeDraggable(panel){
+  const id=panel.dataset.key;
+  const head=panel.querySelector('.phead');
+  let sx,sy,ox,oy,dragging=false,moved=false;
+  head.addEventListener('pointerdown',e=>{
+    if(e.target.classList.contains('pclose'))return;
+    dragging=true;moved=false;
+    try{head.setPointerCapture(e.pointerId);}catch(err){}
+    const r=panel.getBoundingClientRect();
+    panel.style.left=r.left+'px';panel.style.top=r.top+'px';
+    panel.style.right='auto';panel.style.bottom='auto';panel.style.transform='none';
+    sx=e.clientX;sy=e.clientY;ox=r.left;oy=r.top;
+  });
+  head.addEventListener('pointermove',e=>{
+    if(!dragging)return;
+    const dx=e.clientX-sx,dy=e.clientY-sy;
+    if(Math.abs(dx)+Math.abs(dy)>4)moved=true;
+    panel.style.left=clamp(ox+dx,0,window.innerWidth-50)+'px';
+    panel.style.top=clamp(oy+dy,0,window.innerHeight-50)+'px';
+  });
+  head.addEventListener('pointerup',()=>{
+    dragging=false;
+    if(!moved){
+      panel.classList.toggle('collapsed');
+      localStorage.setItem('c_'+id,panel.classList.contains('collapsed')?'1':'0');
+    }
+    const r=panel.getBoundingClientRect();
+    localStorage.setItem('p_'+id,JSON.stringify({l:Math.round(r.left),t:Math.round(r.top)}));
+  });
+  head.addEventListener('pointercancel',()=>{dragging=false;});
+  panel.querySelector('.pclose').onclick=e=>{
+    e.stopPropagation();
+    UIState[id]=false;applyPanel(id);
+  };
+  const sp=localStorage.getItem('p_'+id);
+  if(sp){
+    try{
+      const o=JSON.parse(sp);
+      panel.style.left=clamp(o.l,0,window.innerWidth-50)+'px';
+      panel.style.top=clamp(o.t,0,window.innerHeight-50)+'px';
+      panel.style.right='auto';panel.style.bottom='auto';panel.style.transform='none';
+    }catch(e){}
+  }
+  if(localStorage.getItem('c_'+id)==='1')panel.classList.add('collapsed');
+}
+['hud','qualPanel','micPanel','tunerPanel','legend','transport'].forEach(id=>makeDraggable($(id)));
+
+$('btnReset').onclick=()=>{
+  ['hud','qualPanel','micPanel','tunerPanel','legend','transport'].forEach(id=>{
+    localStorage.removeItem('p_'+id);localStorage.removeItem('c_'+id);
+    const p=$(id);
+    p.classList.remove('collapsed');
+    p.style.left='';p.style.top='';p.style.right='';p.style.bottom='';p.style.transform='';
+  });
+  Object.keys(PANELCFG).forEach(applyPanel);
+  toast('面板已重置回預設位置');
+};
+
+function beginRun(tag,mode){
+  curMode=mode;
+  $('startScreen').style.display='none';
+  $('ui').style.display='flex';
+  if(mode!=='media'&&vidEl)vidEl.classList.remove('small','bg');
+  running=true;requestWakeLock();
+  Object.keys(PANELCFG).forEach(applyPanel);
+  toast(tag);
+}
+$('btnBack').onclick=()=>{
+  stopMedia();running=false;
+  ['hud','qualPanel','micPanel','tunerPanel','legend','transport'].forEach(id=>$(id).style.display='none');
+  $('ui').style.display='none';
+  $('startScreen').style.display='flex';
+  toast('已回到首頁');
+};
+
+async function playFile(name,src){
+  await ensureAudio();stopMedia();ensureMediaEl();
+  vidEl.src=src;
+  const isVideo=/\.(mp4|webm|mov|m4v)$/i.test(name);
+  vidMode=isVideo?0:2;applyVidMode();
+  try{await vidEl.play();}catch(e){}
+  beginRun('▶ '+name.slice(0,18),'media');
+  $('btnPlay').textContent='⏸';
+}
+$('btnFile').onclick=()=>$('fileInput').click();
+$('fileInput').addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;
+  playFile(f.name,URL.createObjectURL(f));
+  e.target.value='';
+});
+
+const DL_SITES={
+  cobalt:{u:'https://cobalt.tools/',online:1},
+  y2mate:{u:'https://www.y2mate.com/',online:1},
+  savefrom:{u:'https://savefrom.net/',online:1},
+  seal:{u:'https://github.com/JunkFood02/Seal'},
+  ytdlnis:{u:'https://github.com/deniscerri/ytdlnis'},
+  newpipe:{u:'https://newpipe.net/'}
+};
+$('btnYt').onclick=()=>{$('dlMenu').style.display='flex';};
+$('dlClose').onclick=()=>$('dlMenu').style.display='none';
+$('dlMenu').addEventListener('click',e=>{
+  if(e.target===$('dlMenu'))$('dlMenu').style.display='none';});
+document.querySelectorAll('.dlItem').forEach(b=>b.onclick=async()=>{
+  const key=b.dataset.site;
+  $('dlMenu').style.display='none';
+  if(key==='ios'){
+    toast('iPhone 步驟：①用「捷徑」App ②Safari 搜尋「YouTube 下載 捷徑」並加入 ③YouTube 分享→選捷徑→選 MP3',12000);
+    return;
+  }
+  const s=DL_SITES[key];if(!s)return;
+  if(s.online){
+    const url=prompt('貼上 YouTube 連結：');
+    if(url&&url.trim()){
+      try{await navigator.clipboard.writeText(url.trim());
+        toast('連結已複製，到網站貼上即可',6000);}
+      catch(e){toast('請手動複製連結，到網站貼上',6000);}
+    }
+  }else{
+    toast('安裝後：YouTube 分享 → 選此 App → 選 Audio（m4a/mp3）',8000);
+  }
+  window.open(s.u,'_blank');
+});
+
+let micSplit=null,anL=null,anR=null,bufL=null,bufR=null;
+let clipAcc=0,clipTot=0,clipRatio=0,clipShown=0;
+let floorBuf=[],balDb=0,maxAbsBal=0,stereoOK=false;
+$('btnMic').onclick=async()=>{
+  await ensureAudio();stopMedia();
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia(
+      {audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  }catch(e){toast('無法開啟麥克風：請確認權限（需 https 網址）');return;}
+  micSrc=audioCtx.createMediaStreamSource(micStream);
+  micSrc.connect(analyser);
+  micSplit=audioCtx.createChannelSplitter(2);
+  anL=audioCtx.createAnalyser();anL.fftSize=1024;
+  anR=audioCtx.createAnalyser();anR.fftSize=1024;
+  bufL=new Float32Array(anL.fftSize);bufR=new Float32Array(anR.fftSize);
+  micSplit.connect(anL,0);micSplit.connect(anR,1);
+  micSrc.connect(micSplit);
+  clipAcc=0;clipTot=0;clipRatio=0;floorBuf=[];balDb=0;maxAbsBal=0;
+  stereoOK=false;peakHold=-45;
+  const tr=micStream.getAudioTracks()[0];
+  const cc=(tr.getSettings&&tr.getSettings().channelCount)||0;
+  if(cc===1){$('rowBal').style.display='none';$('mVBal').textContent='單聲道';}
+  else{$('rowBal').style.display='flex';$('mVBal').textContent='偵測中';}
+  beginRun('🎤 麥克風收音中','mic');
+  if(audioCtx.state!=='running')toast('⚠️ 音訊引擎未啟動，請點一下畫面',6000);
+};
+
+$('btnTab').onclick=async()=>{
+  await ensureAudio();
+  try{
+    const ds=await navigator.mediaDevices.getDisplayMedia(
+      {video:true,audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    if(ds.getAudioTracks().length===0){
+      ds.getTracks().forEach(t=>t.stop());
+      toast('此裝置不含分頁音訊（手機常見）');return;
+    }
+    stopMedia();tabStream=ds;
+    tabSrc=audioCtx.createMediaStreamSource(ds);
+    tabSrc.connect(analyser);
+    beginRun('🖥 分頁聲音擷取中','tab');
+  }catch(e){toast('未授權或不支援');return;}
+};
+
+const fmt=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+$('btnPlay').onclick=()=>{
+  if(!vidEl){toast('播放控制僅在媒體模式可用');return;}
+  vidEl.paused?vidEl.play():vidEl.pause();};
+document.addEventListener('play',()=>{if(vidEl)$('btnPlay').textContent='⏸';},true);
+document.addEventListener('pause',()=>{if(vidEl&&!vidEl.ended)$('btnPlay').textContent='▶';},true);
+$('btnBw').onclick=()=>{if(vidEl)vidEl.currentTime=Math.max(0,vidEl.currentTime-5);
+  else toast('播放控制僅在媒體模式可用');};
+$('btnFw').onclick=()=>{if(vidEl)vidEl.currentTime+=5;
+  else toast('播放控制僅在媒體模式可用');};
+$('btnA').onclick=()=>{if(!vidEl){toast('播放控制僅在媒體模式可用');return;}
+  loopA=vidEl.currentTime;$('btnA').textContent='A '+fmt(loopA);toast('循環起點 '+fmt(loopA));};
+$('btnB').onclick=()=>{if(!vidEl){toast('播放控制僅在媒體模式可用');return;}
+  const b=vidEl.currentTime;
+  if(b<=loopA){toast('B 要設在 A 之後');return;}
+  loopB=b;$('btnB').textContent='B '+fmt(loopB);toast('循環 '+fmt(loopA)+'–'+fmt(loopB));};
+$('btnClr').onclick=()=>{loopA=0;loopB=0;
+  $('btnA').textContent='A';$('btnB').textContent='B';};
+function applyVidMode(){
+  if(!vidEl)return;
+  vidEl.classList.toggle('small',vidMode===0);
+  vidEl.classList.toggle('bg',vidMode===1);
+  $('btnVidMode').textContent=['🖼 小窗','🖼 融入','🖼 隱藏'][vidMode];
+}
+$('btnVidMode').onclick=()=>{if(!vidEl){toast('僅媒體模式可用');return;}
+  vidMode=(vidMode+1)%3;applyVidMode();};
+$('btnStyle').onclick=()=>{styleMode=1-styleMode;
+  $('btnStyle').textContent=styleMode?'🌸 花朵':'🌊 光河';};
+$('btnFs').onclick=()=>{if(!document.fullscreenElement)
+  document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+  else document.exitFullscreen();};
+$('sens').oninput=e=>sensitivity=parseFloat(e.target.value);
+let wakeLock=null;
+async function requestWakeLock(){try{wakeLock=await navigator.wakeLock.request('screen');}catch(e){}}
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&running)requestWakeLock();});
+
+/* ===== 分析 ===== */
+let rms=0,dB=-80,dispDb=-80,smoothDb=-80,slowDb=-80,dynE=0,centroid=1900,dominantF=0;
+let lastOnset=0,lastDynPush=0;
+const pitchBuf=[],onsets=[],dynBuf=[],ripples=[];
+let onsetTime=0;
+let onsetTracking=false,onsetPeakDb=-80,onsetPeakTime=0,lastRiseMs=50,riseSm=50;
+let rawDb=-80,floorDb=-100,winMaxDb=-100,lastFloorPush=0;
+const vibTrace=[];
+let vibDepthC=0,vibRateHz=0;
+let forceMode='校準',forcePct=0;
+let peakHold=-45,prevAnalyze=0;
+let flash=0;
+const envBuf=[];
+let sTemp=0.5,sAttack=0.5,sRough=0.5,sSolid=0.5,sPer=0.5;
+
+const specPow=new Float32Array(1100);
+let specA=0,specN=0;
+function computeSpec(binHz){
+  analyser.getFloatFrequencyData(floatFreq);
+  const a=Math.max(1,Math.floor(120/binHz));
+  const b=Math.min(floatFreq.length-1,Math.ceil(6200/binHz));
+  const n=b-a+1;
+  specA=a;specN=n;
+  const tmp=Float32Array.from(floatFreq.subarray(a,b+1)).sort();
+  const floorDb=tmp[Math.floor(n*0.12)]||-100;
+  const fm=Math.pow(10,floorDb/20);
+  let num=0,den=0;
+  for(let i=0;i<n;i++){
+    const m=Math.pow(10,floatFreq[a+i]/20)-fm;
+    const p=m>0?m*m:0;
+    specPow[i]=p;
+    num+=(a+i)*binHz*p;den+=p;
+  }
+  if(den>1e-12){
+    const c=num/den;
+    if(c>300&&c<8000)centroid+=(c-centroid)*0.35;
+  }
+}
+function bandPow(lo,hi,binHz){
+  const a=Math.max(0,Math.floor(lo/binHz)-specA),
+        b=Math.min(specN-1,Math.ceil(hi/binHz)-specA);
+  let s=0;
+  for(let i=Math.max(0,a);i<=b;i++)s+=specPow[i];
+  return s;
+}
+
+function analyze(now){
+  const dtA=Math.min(0.1,now-prevAnalyze||0.016);prevAnalyze=now;
+  analyser.getFloatTimeDomainData(timeData);
+  let s=0,clip=0;
+  for(let i=0;i<timeData.length;i++){
+    const v=timeData[i];s+=v*v;
+    if(v>0.98||v<-0.98)clip++;
+  }
+  const rawRms=Math.sqrt(s/timeData.length);
+  rawDb=20*Math.log10(rawRms+1e-8);
+  rms=rawRms*sensitivity;
+  dB=20*Math.log10(rms+1e-8);
+  if(dB>dispDb)dispDb+=(dB-dispDb)*0.5;
+  else dispDb+=(dB-dispDb)*0.15;
+  if(dB>smoothDb)smoothDb+=(dB-smoothDb)*0.12;
+  else smoothDb+=(dB-smoothDb)*0.05;
+  /* ⭐ 慢基線（起音用能量通量參考）：τ上~0.55s τ下~1.4s */
+  if(dB>slowDb)slowDb+=(dB-slowDb)*0.03;
+  else slowDb+=(dB-slowDb)*0.012;
+  /* ⭐ 力度峰值追蹤 */
+  if(smoothDb>peakHold)peakHold=smoothDb;
+  else peakHold=Math.max(peakHold-dtA*0.35,smoothDb);
+  dynE=dynE*0.9+rms*0.1;
+  if(now-lastDynPush>0.1){
+    lastDynPush=now;
+    if(smoothDb>-58){dynBuf.push({t:now,db:smoothDb});
+      while(dynBuf.length&&now-dynBuf[0].t>5)dynBuf.shift();}
+  }
+  clipAcc+=clip;clipTot+=timeData.length;
+  if(clipTot>=timeData.length*30){
+    clipRatio=clipAcc/clipTot;clipAcc=0;clipTot=0;
+  }
+  if(now-lastFloorPush>0.25){
+    lastFloorPush=now;floorBuf.push({t:now,db:rawDb});
+    while(floorBuf.length&&now-floorBuf[0].t>12)floorBuf.shift();
+    floorDb=1e9;winMaxDb=-1e9;
+    for(const p of floorBuf){if(p.db<floorDb)floorDb=p.db;if(p.db>winMaxDb)winMaxDb=p.db;}
+  }
+  if(anL&&anR){
+    anL.getFloatTimeDomainData(bufL);anR.getFloatTimeDomainData(bufR);
+    let sl=0,sr=0;
+    for(let i=0;i<bufL.length;i++){sl+=bufL[i]*bufL[i];sr+=bufR[i]*bufR[i];}
+    const dl=20*Math.log10(Math.sqrt(sl/bufL.length)+1e-8);
+    const dr=20*Math.log10(Math.sqrt(sr/bufR.length)+1e-8);
+    balDb=balDb*0.9+(dl-dr)*0.1;
+    if(Math.abs(dl-dr)>2.5)maxAbsBal=Math.max(maxAbsBal,Math.abs(dl-dr));
+    if(!stereoOK&&maxAbsBal>2.5){stereoOK=true;$('rowBal').style.display='flex';}
+  }
+  const binHz=audioCtx.sampleRate/analyser.fftSize;
+  analyser.getByteFrequencyData(freqData);
+  computeSpec(binHz);
+  const f=findDominant(binHz);
+  if(f)dominantF=f;
+  /* ⭐⭐ 起音＝能量通量：當前 dB 比 1.5 秒慢基線高 5dB 以上即觸發
+     連續拉琴時每個新音都會觸發（舊版比 dynE 高 1.5× 永遠觸發不了） */
+  const flux=dB-slowDb;
+  if(flux>5&&rms>0.012&&now-lastOnset>0.1){
+    lastOnset=now;onsets.push(now);
+    onsetTime=now;
+    onsetTracking=true;onsetPeakDb=dispDb;onsetPeakTime=now;
+    flash=1;
+    spawnRipple(Math.min(1,flux/12+0.3));
+  }
+  if(onsetTracking){
+    if(dispDb>onsetPeakDb){onsetPeakDb=dispDb;onsetPeakTime=now;}
+    if(dispDb<onsetPeakDb-3||now-onsetTime>0.25){
+      lastRiseMs=Math.max(2,(onsetPeakTime-onsetTime)*1000);
+      onsetTracking=false;
+    }
+  }
+  riseSm+=(lastRiseMs-riseSm)*0.5;
+  while(onsets.length&&now-onsets[0]>3)onsets.shift();
+
+  envBuf.push({t:now,db:dispDb});
+  while(envBuf.length&&now-envBuf[0].t>0.3)envBuf.shift();
+  let envStd=0;
+  if(envBuf.length>8){
+    let m=0;for(const p of envBuf)m+=p.db;m/=envBuf.length;
+    let v=0;for(const p of envBuf)v+=(p.db-m)*(p.db-m);
+    envStd=Math.sqrt(v/envBuf.length);
+  }
+
+  const eB1=bandPow(190,380,binHz),
+        eB2=bandPow(380,760,binHz),
+        eB3=bandPow(760,1520,binHz),
+        eB4=bandPow(1520,3040,binHz),
+        eB5=bandPow(3040,6080,binHz),
+        eAllB=eB1+eB2+eB3+eB4+eB5+1e-12;
+  const CPTS=[[600,0.04],[1000,0.2],[1500,0.38],[1900,0.5],[2400,0.7],[3000,0.88],[3800,0.97]];
+  let centN=CPTS[CPTS.length-1][1];
+  if(centroid<=CPTS[0][0])centN=CPTS[0][1];
+  else for(let i=0;i<CPTS.length-1;i++){
+    const p=CPTS[i],q=CPTS[i+1];
+    if(centroid<=q[0]){centN=p[1]+(q[1]-p[1])*(centroid-p[0])/(q[0]-p[0]);break;}
+  }
+  const warmth=(eB1+eB2)/eAllB;
+  const warmN=clamp((warmth-0.28)/0.30);
+  const tempTarget=clamp(0.75*centN+0.25*(1-warmN));
+  const sharpN=clamp(((eB4+eB5)/eAllB-0.10)/0.28);
+  const attackNorm=clamp((95-riseSm)/85);
+  const attackTarget=clamp(0.55*sharpN+0.45*attackNorm);
+  const eHarsh=bandPow(2500,5500,binHz),
+        eAllH=bandPow(200,6000,binHz);
+  const harshN=clamp(((eHarsh/(eAllH+1e-12))-0.03)/0.15);
+  let lg=0,lm=0,ln=0;
+  const a6=Math.max(specA,Math.floor(3000/binHz)-specA),
+        b6=Math.min(specN-1,Math.floor(6000/binHz)-specA);
+  for(let i=a6;i<=b6;i++){const p=specPow[i];lg+=Math.log(p+1e-9);lm+=p;ln++;}
+  const flat6=ln?Math.min(1,Math.exp(lg/ln)/(lm/ln+1e-12)):0;
+  const envModN=clamp((envStd-0.8)/4);
+  const roughTarget=clamp(0.5*harshN+0.3*clamp(flat6/0.25)+0.2*envModN);
+  let perNow=sPer;
+  if(dominantF>0&&rawDb>-55){
+    const T0=Math.round(audioCtx.sampleRate/dominantF);
+    if(T0>=2&&T0<=1024){
+      const N=2048,off=timeData.length-N;
+      let r0=0,rt=0;
+      for(let i=off;i<off+N-T0;i++){
+        const x=timeData[i];
+        r0+=x*x;rt+=x*timeData[i+T0];
+      }
+      if(r0>1e-6)perNow=clamp(rt/(r0+1e-9));
+    }
+  }
+  sPer+=(perNow-sPer)*0.3;
+  const eLowC=bandPow(200,600,binHz),
+        e80_2k=bandPow(80,2000,binHz);
+  const lowN=clamp(((eLowC/(e80_2k+1e-12))-0.30)/0.40);
+  const solidTarget=clamp(0.8*clamp((sPer-0.35)/0.45)+0.2*lowN);
+  const silent=rawDb<-52;
+  const K=silent?0.05:0.2;
+  sTemp+=((silent?0.5:tempTarget)-sTemp)*K;
+  sAttack+=((silent?0.5:attackTarget)-sAttack)*K;
+  sRough+=((silent?0.5:roughTarget)-sRough)*K;
+  sSolid+=((silent?0.5:solidTarget)-sSolid)*K;
+  flash*=Math.exp(-5*dtA);
+}
+function findDominant(binHz){
+  const iLo=Math.max(1,Math.floor(80/binHz)-specA);
+  const hi=Math.min(specN-2,Math.floor(1700/binHz)-specA);
+  let best=0,bv=0;
+  for(let i=iLo;i<=hi;i++){
+    const byteV=freqData[specA+i];
+    if(byteV>28&&specPow[i]>bv){bv=specPow[i];best=i;}
+  }
+  if(!best)return 0;
+  const y1=Math.sqrt(specPow[best-1]||0),y2=Math.sqrt(bv),y3=Math.sqrt(specPow[best+1]||0);
+  const den=y1-2*y2+y3;
+  const d=Math.abs(den)>1e-12?0.5*(y1-y3)/den:0;
+  return (specA+best+Math.max(-.5,Math.min(.5,d)))*binHz;
+}
+function updatePitch(f,now){
+  const last=pitchBuf[pitchBuf.length-1];
+  if(!last||Math.abs(f-last.f)/last.f<0.3){
+    pitchBuf.push({t:now,f});
+    vibOnPoint(now);
+  }else{
+    pitchBuf.length=0;pitchBuf.push({t:now,f});
+  }
+  while(pitchBuf.length&&now-pitchBuf[0].t>1.1)pitchBuf.shift();
+}
+function vibOnPoint(now){
+  const n=pitchBuf.length;
+  if(n<3)return;
+  const i=n-1;
+  const w=[pitchBuf[i-2]?pitchBuf[i-2].f:pitchBuf[i-1].f,pitchBuf[i-1].f,pitchBuf[i].f];
+  w.sort((a,b)=>a-b);
+  const f=1200*Math.log2(w[1]/refA4);
+  let sum=0,cnt=0;
+  for(let j=0;j<n;j++){
+    if(now-pitchBuf[j].t<=0.16){sum+=1200*Math.log2(pitchBuf[j].f/refA4);cnt++;}
+  }
+  const det=cnt?f-sum/cnt:0;
+  vibTrace.push({t:now,c:det});
+  while(vibTrace.length&&now-vibTrace[0].t>1.0)vibTrace.shift();
+  let sum2=0,c2=0;
+  for(const p of vibTrace){if(now-p.t<=0.6){sum2+=p.c*p.c;c2++;}}
+  const depth=c2>6?Math.sqrt(sum2/c2):0;
+  let mn=1e9,mx=-1e9;
+  for(const p of vibTrace){if(now-p.t<=0.6){if(p.c<mn)mn=p.c;if(p.c>mx)mx=p.c;}}
+  const amp=mx-mn,th=0.25*amp;
+  let cross=0,prevS=0;
+  for(const p of vibTrace){
+    const sg=p.c>th?1:(p.c<-th?-1:0);
+    if(prevS&&sg&&sg!==prevS)cross++;
+    if(sg)prevS=sg;
+  }
+  const dur=Math.min(1.0,now-vibTrace[0].t);
+  const rate=dur>0.4?cross/2/dur:0;
+  vibDepthC+=(depth-vibDepthC)*0.35;
+  vibRateHz+=(rate-vibRateHz)*0.3;
+}
+function drawVibWave(now){
+  const c=$('vibWave'),g=c.getContext('2d');
+  const w=c.width,h=c.height;
+  g.clearRect(0,0,w,h);
+  g.strokeStyle='rgba(255,255,255,.15)';
+  g.beginPath();g.moveTo(0,h/2);g.lineTo(w,h/2);g.stroke();
+  if(vibTrace.length<4)return;
+  let mx=15;
+  for(const p of vibTrace)mx=Math.max(mx,Math.abs(p.c));
+  mx=Math.min(80,mx*1.2);
+  g.strokeStyle='#9be15d';g.lineWidth=1.5;g.beginPath();
+  const t0=vibTrace[0].t,t1=Math.max(now,t0+0.01);
+  vibTrace.forEach((p,i)=>{
+    const x=(p.t-t0)/(t1-t0)*w;
+    const y=h/2-clamp(p.c/mx,-1,1)*(h/2-2);
+    i===0?g.moveTo(x,y):g.lineTo(x,y);
+  });
+  g.stroke();
+}
+const NOTE_NAMES=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+function noteName(f){
+  const midi=Math.round(69+12*Math.log2(f/refA4));
+  return NOTE_NAMES[((midi%12)+12)%12]+(Math.floor(midi/12)-1);
+}
+/* ⭐⭐ 力度：clamp 上限改 100（舊版 clamp() 上限 1，任何 >1% 都被砍成 1%→永遠 pp） */
+function forceCalc(){
+  if(dynBuf.length>=12){
+    const arr=dynBuf.map(p=>p.db).sort((a,b)=>a-b);
+    const p5=arr[Math.floor(arr.length*0.05)],
+          p95=arr[Math.min(arr.length-1,Math.floor(arr.length*0.95))];
+    if(p95-p5>=6){
+      forceMode='自動';
+      forcePct=clamp((smoothDb-p5)/(p95-p5)*100,0,100);
+      return;
+    }
+  }
+  forceMode='校準';
+  const base=peakHold-36;
+  forcePct=clamp((smoothDb-base)/36*100,0,100);
+}
+function adjForce(p){
+  return p<8?'很弱pp':p<22?'弱p':p<40?'中弱mp':p<60?'中強mf':p<80?'強f':'很強ff';
+}
+/* ⭐ 揉音形容詞只看深度（舊版把速率不符也掛「無揉音」） */
+function adjVibDepth(d){
+  return d<8?'無':d<18?'輕微':d<32?'適中':d<48?'寬':'很寬';
+}
+function adjTemp(centHz){
+  return centHz<900?'暗沉':centHz<1500?'偏暗':centHz<2300?'中性':centHz<3200?'偏亮':'明亮';
+}
+function adjOnset(ms){
+  return ms>90?'圓潤':ms>60?'偏圓':ms>35?'適中':ms>15?'偏銳':'銳利';
+}
+function adjGrip(s){
+  return s<0.25?'虛':s<0.4?'偏虛':s<0.6?'中':s<0.75?'偏實':'實';
+}
+function qLabel(v,low,high){
+  if(v<0.2)return '極'+low;
+  if(v<0.38)return '偏'+low;
+  if(v<0.62)return '中性';
+  if(v<0.8)return '偏'+high;
+  return '極'+high;
+}
+function relationText(){
+  if(sSolid<0.38)return '弓毛未抓穩弦：弓壓加大、弓速放慢、靠近琴馬';
+  if(sTemp>0.62&&sRough>0.6&&sAttack>0.6)return '音色薄銳：弓壓可能偏大，弓速可放慢';
+  if(sTemp<0.38&&sAttack<0.4)return '聲音偏暗偏軟：弓速可加快、弓壓稍加';
+  if(vibDepthC>=32)return '揉音寬而明顯，注意音準中心';
+  if(sTemp>0.62)return '音色偏亮';
+  if(sTemp<0.38)return '音色偏暗偏暖';
+  return '整體均衡';
+}
+function renderQual(){
+  $('dotTemp').style.left=(sTemp*100)+'%';
+  $('dotHard').style.left=(sAttack*100)+'%';
+  $('dotRough').style.left=(sRough*100)+'%';
+  $('dotSolid').style.left=(sSolid*100)+'%';
+  $('valTemp').textContent=qLabel(sTemp,'溫暖','明亮');
+  $('valHard').textContent=qLabel(sAttack,'軟','硬');
+  $('valRough').textContent=qLabel(sRough,'圓','刺');
+  $('valSolid').textContent=qLabel(sSolid,'虛','實');
+  const parts=[];
+  if(sTemp>0.62)parts.push('明亮');else if(sTemp<0.38)parts.push('溫暖');
+  if(sAttack>0.62)parts.push('硬');else if(sAttack<0.38)parts.push('軟');
+  if(sRough>0.62)parts.push('刺');else if(sRough<0.38)parts.push('圓');
+  if(sSolid>0.62)parts.push('實');else if(sSolid<0.38)parts.push('虛');
+  $('qualSummary').textContent=parts.length?('當前質感：'+parts.join(' · ')):'當前質感：中性';
+}
+function renderMicHealth(){
+  clipShown+=(clipRatio-clipShown)*0.3;
+  $('mFillLv').style.width=clamp((rawDb+60)/60*100)+'%';
+  $('mVLv').textContent=Math.round(rawDb)+'dB';
+  $('mFillClip').style.width=clamp(clipShown/0.003*100)+'%';
+  $('mVClip').textContent=(clipShown*100).toFixed(1)+'%';
+  const hasGap=winMaxDb-floorDb>12;
+  const noiseOK=hasGap&&floorBuf.length>=20;
+  $('mFillNoise').style.width=noiseOK?clamp((floorDb+70)/40*100)+'%':'0%';
+  $('mVNoise').textContent=noiseOK?Math.round(floorDb)+'dB':'–';
+  const st_=audioCtx?audioCtx.state:'–';
+  $('mVEng').textContent=st_;
+  $('mVEng').style.color=st_==='running'?'#9be15d':(st_==='suspended'?'#ff8a8a':'#cfd6e4');
+  $('mFillEng').style.width=st_==='running'?'100%':'0%';
+  $('mFillEng').style.background=st_==='running'?'#9be15d':'#ff8a8a';
+  if(stereoOK){
+    $('balDot').style.left=(50+clamp(balDb,-15,15)/15*50)+'%';
+    $('mVBal').textContent=balDb>1?'左強':(balDb<-1?'右強':'置中');
+  }
+  const st=$('micStatus');
+  const playing=rawDb>-50&&rawDb>floorDb+8;
+  const srcTag=curMode==='mic'?'收音':curMode==='media'?'檔案':'分頁';
+  if(audioCtx&&audioCtx.state!=='running'){
+    st.style.color='#ff8a8a';
+    st.textContent='🔴 音訊引擎暫停：點一下畫面';
+  }else if(clipShown>0.003){
+    st.style.color='#ff8a8a';
+    st.textContent='🔴 破音！'+(curMode==='mic'?'退遠到 2 公尺':'音源音量過大');
+  }else if(playing&&rawDb>-12){
+    st.style.color='#ffd98a';
+    st.textContent='🟡 過近：已在破音邊緣';
+  }else if(playing&&rawDb<-48){
+    st.style.color='#ff8a8a';
+    st.textContent='🔴 '+srcTag+'太弱：'+(curMode==='mic'?'靠近到 1 公尺內':'調高裝置音量');
+  }else if(playing&&rawDb<-38){
+    st.style.color='#ffd98a';
+    st.textContent='🟡 偏遠：可再靠近';
+  }else if(noiseOK&&floorDb>-45){
+    st.style.color='#ffd98a';
+    st.textContent='🟡 環境偏吵（底噪 '+Math.round(floorDb)+'dB）';
+  }else if(stereoOK&&Math.abs(balDb)>6){
+    st.style.color='#ffd98a';
+    st.textContent=balDb>0?'🟡 琴偏手機左邊':'🟡 琴偏手機右邊';
+  }else if(playing){
+    st.style.color='#9be15d';
+    st.textContent='🟢 '+srcTag+'良好，繼續';
+  }else{
+    st.style.color='#8fa0c5';
+    st.textContent='🩺 等待聲音…';
+  }
+}
+
+/* ⭐ YIN 45Hz 採樣（揉音每周期 8 點）、最低偵測音高 100Hz */
+const ACFN=2048;
+const acfBuf=new Float32Array(ACFN);
+let dArr=null,dpArr=null,acfMaxLag=0;
+let tunerF=0,tunerClarity=0,tunerCentsS=0,tunerLast=0,tunerUILast=0;
+let inTuneSince=0,stableShown=false;
+function detectTuner(now){
+  if(now-tunerLast<0.022)return;tunerLast=now;
+  const sr=audioCtx.sampleRate;
+  acfBuf.set(timeData.subarray(timeData.length-ACFN));
+  let e=0;
+  for(let i=0;i<ACFN;i++){const v=acfBuf[i];e+=v*v;}
+  if(Math.sqrt(e/ACFN)<0.004){tunerF=0;tunerClarity=0;inTuneSince=0;stableShown=false;return;}
+  const minLag=Math.max(2,Math.floor(sr/2200));
+  const maxLag=Math.min(ACFN-2,Math.floor(sr/100));
+  if(maxLag!==acfMaxLag||!dArr){
+    acfMaxLag=maxLag;
+    dArr=new Float32Array(maxLag+2);dpArr=new Float32Array(maxLag+2);
+  }
+  for(let lag=1;lag<=maxLag;lag++){
+    let sum=0;const lim=ACFN-lag;
+    for(let i=0;i<lim;i++){const df=acfBuf[i]-acfBuf[i+lag];sum+=df*df;}
+    dArr[lag]=sum;
+  }
+  let run=0;
+  for(let lag=1;lag<=maxLag;lag++){
+    run+=dArr[lag];
+    dpArr[lag]=run>0?dArr[lag]*lag/run:1;
+  }
+  let tau=-1;
+  for(let lag=minLag;lag<=maxLag;lag++){
+    if(dpArr[lag]<0.15){
+      let t2=lag;
+      while(t2+1<=maxLag&&dpArr[t2+1]<dpArr[t2])t2++;
+      tau=t2;break;
+    }
+  }
+  if(tau<0){
+    let best=1e9,bl=-1;
+    for(let lag=minLag;lag<=maxLag;lag++)
+      if(dpArr[lag]<best){best=dpArr[lag];bl=lag;}
+    if(bl<0||best>0.6){tunerF=0;tunerClarity=0;inTuneSince=0;stableShown=false;return;}
+    tau=bl;
+  }
+  let better=tau;
+  if(tau>1&&tau<maxLag){
+    const a=dArr[tau-1],b=dArr[tau],c=dArr[tau+1];
+    const den=a-2*b+c;
+    if(Math.abs(den)>1e-9){
+      const delta=0.5*(a-c)/den;
+      if(Math.abs(delta)<1)better=tau+delta;
+    }
+  }
+  const f=sr/better;
+  if(f<80||f>2200){tunerF=0;tunerClarity=0;inTuneSince=0;stableShown=false;return;}
+  tunerF=f;tunerClarity=1-Math.min(1,dpArr[tau]);
+}
+function tunerUI(now){
+  if(now-tunerUILast<0.08)return;tunerUILast=now;
+  const nEl=$('tNote'),fEl=$('tFreq'),cEl=$('tCents'),
+        stEl=$('tStatus'),nd=$('tNeedle');
+  if(tunerF>0&&tunerClarity>0.7){
+    const midiF=69+12*Math.log2(tunerF/refA4);
+    const midi=Math.round(midiF);
+    const targetF=refA4*Math.pow(2,(midi-69)/12);
+    const cents=Math.max(-50,Math.min(50,(midiF-midi)*100));
+    tunerCentsS+=(cents-tunerCentsS)*0.45;
+    const name=NOTE_NAMES[((midi%12)+12)%12]+(Math.floor(midi/12)-1);
+    const c=Math.round(tunerCentsS);
+    let col,stat;
+    if(Math.abs(c)<=5){
+      col='#9be15d';
+      if(!inTuneSince)inTuneSince=now;
+      stableShown=(now-inTuneSince)>2;
+      stat=stableShown?'✓✓ 穩定在調':'✓ 準了';
+    }else{
+      inTuneSince=0;stableShown=false;
+      if(Math.abs(c)<=15){
+        col='#ffd98a';
+        stat=c>0?'接近：略偏高':'接近：略偏低';
+      }else{
+        col='#ff8a8a';
+        stat=c>0?'明顯偏高 ♯':'明顯偏低 ♭';
+      }
+    }
+    nEl.textContent=name;
+    nEl.style.color=col;
+    fEl.textContent=tunerF.toFixed(1)+' Hz ｜ 目標 '+targetF.toFixed(1)+' Hz';
+    cEl.textContent=(c>0?'+':'')+c+'¢';
+    cEl.style.color=col;
+    nd.style.left=(50+tunerCentsS)+'%';
+    stEl.textContent=stat;
+    stEl.style.color=col;
+  }else{
+    nEl.textContent='–';nEl.style.color='#8fa0c5';
+    fEl.textContent='聽不到清楚的音…';
+    cEl.textContent='–';cEl.style.color='#ffd98a';
+    nd.style.left='50%';tunerCentsS=0;
+    inTuneSince=0;stableShown=false;
+    stEl.textContent='靠近一點，拉長音';stEl.style.color='#8fa0c5';
+  }
+}
+
+const STOPS=[[80,265,80],[200,215,75],[440,170,70],[800,120,65],[1400,58,85],[2400,28,90],[4200,12,60]];
+function pitchHSL(f){
+  f=Math.max(60,Math.min(6000,f));
+  let a=STOPS[0],b=STOPS[STOPS.length-1];
+  for(let i=0;i<STOPS.length-1;i++)
+    if(f>=STOPS[i][0]&&f<=STOPS[i+1][0]){a=STOPS[i];b=STOPS[i+1];break;}
+  const t=(f-a[0])/((b[0]-a[0])||1);
+  return{h:a[1]+(b[1]-a[1])*t,s:a[2]+(b[2]-a[2])*t,
+    l:Math.min(78,52+30*Math.max(0,f-2000)/4000)};
+}
+const hsl=(c,a=1)=>`hsla(${c.h},${c.s}%,${c.l}%,${a})`;
+const NPET=84;
+const petalLen=new Float32Array(NPET),petalCol=[];
+for(let i=0;i<NPET;i++)petalCol.push({h:0,s:0,l:0});
+let rotation=0;
+function spawnRipple(str){ripples.push({r:12,a:.2+.5*str,c:pitchHSL(centroid)});}
+function sampleSpec(f){
+  const binHz=audioCtx.sampleRate/analyser.fftSize;
+  return freqData[Math.max(0,Math.min(freqData.length-1,Math.round(f/binHz)))]/255;
+}
+const volOf=()=>Math.max(0,Math.min(1,(dispDb+58)/50));
+
+/* 花的多維度繪圖（美學保持不變） */
+function drawFlower(now,dt){
+  const cx=W/2,cy=H*.46,maxR=Math.min(W,H)*.36,vol=volOf();
+  const coreR=maxR*(.08+vol*.30);
+  const shim=vibDepthC>2?Math.sin(now*vibRateHz*6.283)*vibDepthC*0.012:0;
+  for(let j=0;j<NPET;j++){
+    const u=j<NPET/2?j/(NPET/2):(NPET-1-j)/(NPET/2);
+    const m=sampleSpec(90*Math.pow(7000/90,u));
+    const target=Math.pow(m,1.4)*maxR*.95*(1+shim);
+    petalLen[j]+=(target-petalLen[j])*.35;
+    petalCol[j]=pitchHSL(90*Math.pow(7000/90,u));
+  }
+  rotation+=dt*.12*(.4+vol*1.6);
+  const hard=sAttack;
+  const rough=sRough;
+  const solid=sSolid;
+  const warm=sTemp;
+  const jag=clamp((rough-0.5)*2);
+  const petalW=0.20-0.11*hard;
+  const tipPull=0.5+0.18*hard;
+  ctx.fillStyle='rgba(4,6,12,.30)';ctx.fillRect(0,0,W,H);
+  const amb=pitchHSL(centroid);
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(W,H)*.75);
+  g.addColorStop(0,hsl(amb,.10+vol*.12));g.addColorStop(1,'rgba(4,6,12,0)');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation='lighter';
+  const fl=flash*0.25;
+  for(let j=0;j<NPET;j++){
+    const ang=rotation+(j/NPET)*6.283,len=petalLen[j];
+    if(len<2)continue;
+    const c=petalCol[j];
+    const ca=Math.min(.9,(0.10+len/maxR*0.5)*(0.30+0.70*solid)+fl);
+    const r0=coreR*.9;
+    const ca1=Math.cos(ang),sa1=Math.sin(ang);
+    const qx=-sa1,qy=ca1;
+    const w=len*petalW*(1+shim*2);
+    const bx=cx+ca1*r0,by=cy+sa1*r0;
+    const tx=cx+ca1*(r0+len),ty=cy+sa1*(r0+len);
+    ctx.beginPath();
+    ctx.moveTo(bx,by);
+    if(jag>0.03){
+      const p1x=cx+qx*w*(1+0.55*jag)+ca1*(r0+len*0.38),p1y=cy+qy*w*(1+0.55*jag)+sa1*(r0+len*0.38);
+      const c1x=cx+qx*w*0.6+ca1*(r0+len*0.22),c1y=cy+qy*w*0.6+sa1*(r0+len*0.22);
+      const p2x=cx+qx*w*0.30+ca1*(r0+len*tipPull),p2y=cy+qy*w*0.30+sa1*(r0+len*tipPull);
+      const c2x=cx+qx*w*0.55+ca1*(r0+len*0.62),c2y=cy+qy*w*0.55+sa1*(r0+len*0.62);
+      ctx.quadraticCurveTo(c1x,c1y,p1x,p1y);
+      ctx.quadraticCurveTo(c2x,c2y,p2x,p2y);
+      ctx.quadraticCurveTo(cx+qx*w*0.35+ca1*(r0+len*0.82),cy+qy*w*0.35+sa1*(r0+len*0.82),tx,ty);
+      const p3x=cx-qx*w*(1+0.55*jag)+ca1*(r0+len*0.38),p3y=cy-qy*w*(1+0.55*jag)+sa1*(r0+len*0.38);
+      const c3x=cx-qx*w*0.6+ca1*(r0+len*0.22),c3y=cy-qy*w*0.6+sa1*(r0+len*0.22);
+      const p4x=cx-qx*w*0.30+ca1*(r0+len*tipPull),p4y=cy-qy*w*0.30+sa1*(r0+len*tipPull);
+      const c4x=cx-qx*w*0.55+ca1*(r0+len*0.62),c4y=cy-qy*w*0.55+sa1*(r0+len*0.62);
+      ctx.quadraticCurveTo(c4x,c4y,p4x,p4y);
+      ctx.quadraticCurveTo(c3x,c3y,p3x,p3y);
+      ctx.quadraticCurveTo(cx-qx*w*0.35+ca1*(r0+len*0.82),cy-qy*w*0.35+sa1*(r0+len*0.82),bx,by);
+    }else{
+      const m1x=cx+qx*w+ca1*(r0+len*tipPull),m1y=cy+qy*w+sa1*(r0+len*tipPull);
+      ctx.quadraticCurveTo(m1x,m1y,tx,ty);
+      ctx.quadraticCurveTo(cx-qx*w+ca1*(r0+len*tipPull),cy-qy*w+sa1*(r0+len*tipPull),bx,by);
+    }
+    ctx.fillStyle=hsl(c,ca*.55);
+    ctx.fill();
+    if(solid<0.35){
+      ctx.setLineDash([2.5,7]);
+      ctx.lineWidth=1;
+      ctx.strokeStyle=hsl(c,ca*0.55);
+    }else{
+      ctx.setLineDash([]);
+      ctx.lineWidth=solid>0.6?1.5:1;
+      ctx.strokeStyle=hsl(c,ca*0.85);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  const cgW=ctx.createRadialGradient(cx,cy,0,cx,cy,coreR*1.9);
+  cgW.addColorStop(0,`hsla(34,85%,74%,${(0.35+vol*.5)*(1-warm*0.85)+fl})`);
+  cgW.addColorStop(.45,'hsla(30,75%,62%,0)');
+  cgW.addColorStop(1,'hsla(30,75%,62%,0)');
+  ctx.fillStyle=cgW;ctx.beginPath();ctx.arc(cx,cy,coreR*1.9,0,6.283);ctx.fill();
+  const cgB=ctx.createRadialGradient(cx,cy,0,cx,cy,coreR*1.9);
+  cgB.addColorStop(0,`hsla(200,55%,90%,${(0.30+vol*.55)*(0.15+warm*0.85)+fl})`);
+  cgB.addColorStop(.45,'hsla(205,60%,80%,0)');
+  cgB.addColorStop(1,'hsla(205,60%,80%,0)');
+  ctx.fillStyle=cgB;ctx.beginPath();ctx.arc(cx,cy,coreR*1.9,0,6.283);ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy,coreR,0,6.283);
+  if(solid<0.35){ctx.setLineDash([3,6]);ctx.lineWidth=1.2;}
+  else{ctx.setLineDash([]);ctx.lineWidth=2;}
+  ctx.strokeStyle=`hsla(0,0%,100%,${0.35+solid*0.4})`;
+  ctx.stroke();ctx.setLineDash([]);
+  if(vol<0.06){
+    const breathe=0.5+0.5*Math.sin(now*1.4);
+    ctx.strokeStyle=hsl(amb,.10+breathe*.12);ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(cx,cy,coreR*1.4+breathe*6,0,6.283);ctx.stroke();
+  }
+  for(let i=ripples.length-1;i>=0;i--){
+    const r=ripples[i];
+    r.r+=(140+r.a*160)*dt;r.a*=Math.exp(-1.6*dt);
+    if(r.a<.02){ripples.splice(i,1);continue;}
+    ctx.strokeStyle=hsl(r.c,r.a);ctx.lineWidth=2.2;
+    ctx.beginPath();ctx.arc(cx,cy,r.r,0,6.283);ctx.stroke();
+  }
+  ctx.globalCompositeOperation='source-over';
+}
+function drawRiver(now,dt){
+  ctx.fillStyle='rgba(3,5,10,.22)';ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation='lighter';
+  const N=72,baseY=H*.8;
+  for(let j=0;j<N;j++){
+    const u=j/(N-1),m=sampleSpec(60*Math.pow(8000/60,u));
+    if(m<.02)continue;
+    const hgt=Math.pow(m,1.3)*H*.55,x=u*W,bw=W/N+1.5,c=pitchHSL(60*Math.pow(8000/60,u));
+    const grd=ctx.createLinearGradient(x,baseY-hgt,x,baseY);
+    grd.addColorStop(0,hsl(c,.75));grd.addColorStop(1,hsl(c,.05));
+    ctx.fillStyle=grd;ctx.fillRect(x-bw/2,baseY-hgt,bw,hgt);
+  }
+  const y=baseY-volOf()*H*.3,amb=pitchHSL(centroid);
+  ctx.strokeStyle=hsl(amb,.5);ctx.lineWidth=2;ctx.beginPath();
+  for(let x=0;x<=W;x+=8)
+    x===0?ctx.moveTo(x,y+Math.sin(now*1.5+x*.02)*4):ctx.lineTo(x,y+Math.sin(now*1.5+x*.02)*4);
+  ctx.stroke();
+  ctx.globalCompositeOperation='source-over';
+}
+let hudLast=0;
+function updateHUD(now){
+  if(UIState.hud&&now-hudLast>.09){
+    hudLast=now;
+    forceCalc();
+    $('mDyn').style.width=forcePct+'%';
+    $('vDyn').textContent=smoothDb<-58?'–':adjForce(forcePct)+'｜'+Math.round(smoothDb)+'dB｜'+Math.round(forcePct)+'%';
+    /* ⭐ 揉音標籤只依深度：深度≥8 就是「有揉音」，速率只影響顯示的數字 */
+    const has=vibDepthC>=8;
+    $('mVib').style.width=clamp(vibDepthC/60)*100+'%';
+    $('vVib').textContent=smoothDb<-58?'–'
+      :adjVibDepth(vibDepthC)+'｜'
+      +(vibRateHz>2?vibRateHz.toFixed(1)+'Hz':'–')
+      +'｜'+Math.round(vibDepthC)+'¢';
+    drawVibWave(now);
+    $('mTim').style.width=sTemp*100+'%';
+    $('vTim').textContent=smoothDb<-58?'–':adjTemp(centroid)+'｜'+Math.round(centroid)+'Hz';
+    $('mAtt').style.width=clamp((100-riseSm)/90)*100+'%';
+    $('vAtt').textContent=smoothDb<-58?'–':adjOnset(riseSm)+'｜'+Math.round(riseSm)+'ms｜'
+      +(onsets.length/3).toFixed(1)+'/s';
+    $('mGrip').style.width=sSolid*100+'%';
+    $('vGrip').textContent=smoothDb<-58?'–':adjGrip(sSolid)+'｜'+Math.round(sSolid*100)+'%';
+    $('noteLine').textContent=dominantF?'♪ '+noteName(dominantF)+' · '+Math.round(dominantF)+'Hz':'♪ –';
+    if(forceMode==='校準'){
+      $('dynLine').textContent='力度：校準｜強奏基準 '+Math.round(peakHold)
+        +'dB＝ff｜拉一次真正強的會自動上修';
+    }else if(dynBuf.length>12){
+      const arr=dynBuf.map(p=>p.db).sort((a,b)=>a-b);
+      const rg=arr[arr.length-1]-arr[0];
+      $('dynLine').textContent='力度：自動（5秒範圍 '+rg.toFixed(0)+'dB）';
+    }else{
+      $('dynLine').textContent='力度：校準中…';
+    }
+    $('relLine').textContent=smoothDb>-55?relationText():'–';
+  }
+  if(UIState.qual&&now-(renderQual._last||0)>.15){
+    renderQual._last=now;renderQual();
+  }
+  if(UIState.mic&&now-(renderMicHealth._last||0)>.3){
+    renderMicHealth._last=now;renderMicHealth();
+  }
+}
+let lastT=0;
+let errShown=false,errTimer=null;
+function loop(t){
+  requestAnimationFrame(loop);
+  const now=t/1000,dt=Math.min(.05,now-(lastT||now));lastT=now;
+  if(!running||!analyser)return;
+  try{
+    if(curMode==='media'&&vidEl&&vidEl.duration){
+      if(loopB>loopA&&vidEl.currentTime>=loopB-.03)vidEl.currentTime=loopA;
+      if(now-tLast>.25){tLast=now;
+        $('tTime').textContent=fmt(vidEl.currentTime)+' / '+fmt(vidEl.duration)+(loopB>loopA?' ⟳':'');}
+    }
+    analyze(now);
+    /* ⭐ YIN 全模式跑：調音器在影片/分頁模式也可用 */
+    detectTuner(now);
+    if(tunerF>0&&tunerClarity>0.65)updatePitch(tunerF,now);
+    else if(dominantF>0)updatePitch(dominantF,now);
+    styleMode===0?drawFlower(now,dt):drawRiver(now,dt);
+    if(UIState.tuner)tunerUI(now);
+    updateHUD(now);
+    errShown=false;
+  }catch(e){
+    console.error(e);
+    if(!errShown){
+      errShown=true;
+      toast('⚠️ 程式錯誤：'+e.message,10000);
+      clearTimeout(errTimer);
+      errTimer=setTimeout(()=>{errShown=false;},10000);
+    }
+  }
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
