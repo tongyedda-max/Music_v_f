@@ -258,21 +258,37 @@
 
 <div class="panel" id="legend" data-key="legend">
   <div class="phead"><span class="grip">⠿</span><span class="ptitle">🎨 花語對照</span><button class="pclose">✕</button></div>
-  <div class="pbody">
-    <span><b>花</b>＝當下的物理特徵（正中央）</span>
-    <span><b>大小·旋轉</b>＝力度｜<b>顏色</b>＝音高</span>
-    <span><b>🪷 聲部花瓣</b>＝多 F0 即時分離</span>
-    <span><b>　公轉</b>＝完全同步順時針（慢轉）</span>
-    <span><b>　半徑</b>＝即時音高（越高越外圈）</span>
-    <span><b>　時近時遠</b>＝音高接近/拉開</span>
-    <span><b>　最外圈最亮</b>＝句子主旋律</span>
-    <span><b>　加速</b>＝拍子/力度激動時</span>
-    <span><b>揉音</b>＝P-P 幅度 ¢ ＋ 頻率 Hz</span>
-    <span><b>　參考</b>＝20-40¢/4.5-6.5Hz 適中</span>
-    <span><b>閃爍</b>＝揉音　<b>漣漪·瞬亮</b>＝起音</span>
+    <div class="pbody">
+    <span style="color:#ffd98a">🌸 中央花＝這一聲的體檢報告</span>
+    <span><b>花心大小</b>＝整體力度（越響越大）</span>
+    <span><b>花心顏色</b>＝冷暖（暖金=溫暖暗｜冷白藍=明亮）</span>
+    <span><b>花心圈線</b>＝虛線=虛聲（弓未抓穩）｜實線=紮實</span>
+    <span><b>84 片花瓣</b>＝頻譜切片（內圈=低頻→外圈=高頻）</span>
+    <span><b>　花瓣長度</b>＝該頻率能量（那個音有多強）</span>
+    <span><b>　花瓣顏色</b>＝該頻率的音高色（見下方色帶）</span>
+    <span><b>　花瓣寬窄</b>＝軟硬（窄而尖=弓壓大/硬）</span>
+    <span><b>　邊緣鋸齒</b>＝粗糙刺耳程度（越刺越鋸）</span>
+    <span><b>　描邊虛實</b>＝聲音紮實度（虛線=虛）</span>
+    <span><b>整體緩轉</b>＝力度流動（激烈時略快）</span>
+    <span><b>輕微顫動</b>＝揉音深度（顫得越大=揉越寬）</span>
+    <span><b>淡出圓圈</b>＝起音（每次落弓/換弦）</span>
+    <span><b>範圍保證</b>＝永不超出螢幕短邊 42%</span>
+    <span style="color:#ffd98a;margin-top:5px">🪷 聲部花瓣＝同時偵測到的音高</span>
+    <span><b>公轉</b>＝全部同步順時針（慢轉）</span>
+    <span><b>半徑</b>＝即時音高（越高越外圈）</span>
+    <span><b>顏色</b>＝該聲部即時音高</span>
+    <span><b>大小亮度</b>＝該聲部顯著度</span>
+    <span><b>最外圈最亮</b>＝句子主旋律</span>
+    <span><b>時近時遠</b>＝音高互相靠近/拉開</span>
+    <span><b>淡瓣</b>＝該聲部暫時無音（補位用）</span>
+    <span style="color:#ffd98a;margin-top:5px">📐 數值面板準則</span>
+    <span><b>揉音幅度</b>：P-P ¢｜20-40=標準古典｜40-70=寬</span>
+    <span><b>揉音頻率</b>：Hz｜4.5-6.5=健康｜&lt;4.5 wobble</span>
+    <span><b>力度</b>：pp→ff 五級｜起音：ms 越小越銳</span>
     <div id="legendBar"></div>
     <span>低音 ◀ 音高的顏色 ▶ 高音</span>
   </div>
+
 </div>
 
 <div class="panel" id="transport" data-key="trans">
@@ -1288,7 +1304,15 @@ const NPET=84;
 const petalLen=new Float32Array(NPET),petalCol=[];
 for(let i=0;i<NPET;i++)petalCol.push({h:0,s:0,l:0});
 let rotation=0;
-function spawnRipple(str){ripples.push({r:12,a:.2+.5*str,c:pitchHSL(centroid)});}
+ let coreR_s=20,rotEase=0;
+const specS=new Float32Array(NPET),specSm=new Float32Array(NPET);
+function sampleSpec3(f){
+  const binHz=audioCtx.sampleRate/analyser.fftSize;
+  const i=Math.max(1,Math.min(freqData.length-2,Math.round(f/binHz)));
+  return (freqData[i-1]+2*freqData[i]+freqData[i+1])/4/255;
+ }
+ 
+function spawnRipple(str){ripples.push({r:12,a:.12+.3*str,c:pitchHSL(centroid)});}
 function sampleSpec(f){
   const binHz=audioCtx.sampleRate/analyser.fftSize;
   return freqData[Math.max(0,Math.min(freqData.length-1,Math.round(f/binHz)))]/255;
