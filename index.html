@@ -1635,41 +1635,100 @@ function drawFlower(now,dt){
       const p2x=cx+qx*w*0.30+ca1*(r0+len*tipPull),p2y=cy+qy*w*0.30+sa1*(r0+len*tipPull);
       const c2x=cx+qx*w*0.55+ca1*(r0+len*0.62),c2y=cy+qy*w*0.55+sa1*(r0+len*0.62);
       ctx.quadraticCurveTo(c1x,c1y,p1x,p1y);
-      ctx.quadraticCurveTo(c2x,c2y,p2x,p2y);
-      ctx.quadraticCurveTo(cx+qx*w*0.35+ca1*(r0+len*0.82),cy+qy*w*0.35+sa1*(r0+len*0.82),tx,ty);
-      const p3x=cx-qx*w*(1+0.55*jag)+ca1*(r0+len*0.38),p3y=cy-qy*w*(1+0.55*jag)+sa1*(r0+len*0.38);
-      const c3x=cx-qx*w*0.6+ca1*(r0+len*0.22),c3y=cy-qy*w*0.6+sa1*(r0+len*0.22);
-      const p4x=cx-qx*w*0.30+ca1*(r0+len*tipPull),p4y=cy-qy*w*0.30+sa1*(r0+len*tipPull);
-      const c4x=cx-qx*w*0.55+ca1*(r0+len*0.62),c4y=cy-qy*w*0.55+sa1*(r0+len*0.62);
-      ctx.quadraticCurveTo(c4x,c4y,p4x,p4y);
-      ctx.quadraticCurveTo(c3x,c3y,p3x,p3y);
-      ctx.quadraticCurveTo(cx-qx*w*0.35+ca1*(r0+len*0.82),cy-qy*w*0.35+sa1*(r0+len*0.82),bx,by);
-    }else{
-      const m1x=cx+qx*w+ca1*(r0+len*tipPull),m1y=cy+qy*w+sa1*(r0+len*tipPull);
-      ctx.quadraticCurveTo(m1x,m1y,tx,ty);
-      ctx.quadraticCurveTo(cx-qx*w+ca1*(r0+len*tipPull),cy-qy*w+sa1*(r0+len*tipPull),bx,by);
+function drawFlower(now,dt){
+  const cx=W/2,cy=H/2,maxR=Math.min(W,H)*.36,vol=volOf();
+  /* 花心緩慢跟隨力度 */
+  const coreTarget=maxR*(.08+vol*.26);
+  coreR_s+=(coreTarget-coreR_s)*0.08;
+  const coreR=coreR_s;
+  const capR=Math.min(W,H)*0.42;          /* ⭐ 面積上限 */
+
+  /* 1) 取樣：3-bin 平均，消除單點突刺 */
+  for(let j=0;j<NPET;j++){
+    const u=j<NPET/2?j/(NPET/2):(NPET-1-j)/(NPET/2);
+    const f=90*Math.pow(7000/90,u);
+    specS[j]=sampleSpec3(f);
+    petalCol[j]=pitchHSL(f);
+  }
+  /* 2) 環狀鄰居平滑：單瓣不再比鄰居突長（去腫瘤） */
+  for(let j=0;j<NPET;j++){
+    const a=specS[(j+NPET-1)%NPET],b=specS[j],c=specS[(j+1)%NPET];
+    specSm[j]=(a+2*b+c)/4;
+  }
+  /* 3) 等比例縮放：花心+最長瓣 ≤ capR（形狀比例不變） */
+  let mMax=0;
+  for(let j=0;j<NPET;j++)mMax=Math.max(mMax,Math.pow(specSm[j],1.35));
+  const room=Math.max(20,capR-coreR);
+  const kFit=Math.min(1,room/(Math.max(mMax,1e-4)*maxR*0.95));
+  /* 4) 慢綻放：快攻慢放（視覺平緩；數值面板不受影響） */
+  for(let j=0;j<NPET;j++){
+    const target=Math.pow(specSm[j],1.35)*maxR*0.95*kFit;
+    const rate=target>petalLen[j]?0.16:0.07;
+    petalLen[j]+=(target-petalLen[j])*rate;
+  }
+
+  /* 旋轉緩起緩停 */
+  rotEase+=(vol-rotEase)*0.05;
+  rotation+=dt*0.10*(0.35+rotEase*1.1);
+
+  const hard=sAttack,rough=sRough,solid=sSolid,warm=sTemp;
+  const serr=clamp((rough-0.40)*1.8);     /* 細鋸齒邊（對稱、週期性，非腫瘤） */
+  const tipExp=0.85-0.22*hard;            /* 硬＝尖端更收銳 */
+  const petalW=0.20-0.10*hard;
+
+  ctx.fillStyle='rgba(4,6,12,.30)';ctx.fillRect(0,0,W,H);
+  const amb=pitchHSL(centroid);
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(W,H)*.75);
+  g.addColorStop(0,hsl(amb,.10+vol*.10));g.addColorStop(1,'rgba(4,6,12,0)');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation='lighter';
+
+  const SEG=12;
+  for(let j=0;j<NPET;j++){
+    const ang=rotation+(j/NPET)*6.283,len=petalLen[j];
+    if(len<2)continue;
+    const c=petalCol[j];
+    const ca=Math.min(.85,(0.10+len/maxR*0.45)*(0.30+0.70*solid));
+    const r0=coreR*0.9;
+    const ca1=Math.cos(ang),sa1=Math.sin(ang);
+    const qx=-sa1,qy=ca1;
+    /* 揉音只輕微顫動寬度（長度保持穩定） */
+    const w=len*petalW*(1+((vibHasVib&&vibDepthC>6)
+      ?Math.sin(now*vibRateHz*6.283)*vibDepthC*0.004:0));
+    ctx.beginPath();
+    ctx.moveTo(cx+ca1*r0,cy+sa1*r0);
+    for(let side=1;side>=-1;side-=2){
+      for(let s2=1;s2<=SEG;s2++){
+        const t=s2/SEG;
+        const prof=Math.sin(Math.PI*Math.pow(t,tipExp));
+        let e=prof;
+        if(serr>0.03)e*=1-serr*0.20*Math.abs(Math.sin(t*5*Math.PI));
+        const d=r0+t*len,off=side*e*w;
+        ctx.lineTo(cx+ca1*d+qx*off,cy+sa1*d+qy*off);
+      }
     }
+    ctx.closePath();
     ctx.fillStyle=hsl(c,ca*.55);
     ctx.fill();
     if(solid<0.35){
-      ctx.setLineDash([2.5,7]);
-      ctx.lineWidth=1;
+      ctx.setLineDash([2.5,7]);ctx.lineWidth=1;
       ctx.strokeStyle=hsl(c,ca*0.55);
     }else{
       ctx.setLineDash([]);
-      ctx.lineWidth=solid>0.6?1.5:1;
+      ctx.lineWidth=solid>0.6?1.4:1;
       ctx.strokeStyle=hsl(c,ca*0.85);
     }
     ctx.stroke();
     ctx.setLineDash([]);
   }
+  /* 花心雙色光暈（無閃光項） */
   const cgW=ctx.createRadialGradient(cx,cy,0,cx,cy,coreR*1.9);
-  cgW.addColorStop(0,`hsla(34,85%,74%,${(0.35+vol*.5)*(1-warm*0.85)+fl})`);
+  cgW.addColorStop(0,`hsla(34,85%,74%,${(0.35+vol*.5)*(1-warm*0.85)})`);
   cgW.addColorStop(.45,'hsla(30,75%,62%,0)');
   cgW.addColorStop(1,'hsla(30,75%,62%,0)');
   ctx.fillStyle=cgW;ctx.beginPath();ctx.arc(cx,cy,coreR*1.9,0,6.283);ctx.fill();
   const cgB=ctx.createRadialGradient(cx,cy,0,cx,cy,coreR*1.9);
-  cgB.addColorStop(0,`hsla(200,55%,90%,${(0.30+vol*.55)*(0.15+warm*0.85)+fl})`);
+  cgB.addColorStop(0,`hsla(200,55%,90%,${(0.30+vol*.55)*(0.15+warm*0.85)})`);
   cgB.addColorStop(.45,'hsla(205,60%,80%,0)');
   cgB.addColorStop(1,'hsla(205,60%,80%,0)');
   ctx.fillStyle=cgB;ctx.beginPath();ctx.arc(cx,cy,coreR*1.9,0,6.283);ctx.fill();
@@ -1687,11 +1746,12 @@ function drawFlower(now,dt){
     const r=ripples[i];
     r.r+=(140+r.a*160)*dt;r.a*=Math.exp(-1.6*dt);
     if(r.a<.02){ripples.splice(i,1);continue;}
-    ctx.strokeStyle=hsl(r.c,r.a);ctx.lineWidth=2.2;
+    ctx.strokeStyle=hsl(r.c,r.a);ctx.lineWidth=1.6;
     ctx.beginPath();ctx.arc(cx,cy,r.r,0,6.283);ctx.stroke();
   }
   ctx.globalCompositeOperation='source-over';
 }
+
 function drawRiver(now,dt){
   ctx.fillStyle='rgba(3,5,10,.22)';ctx.fillRect(0,0,W,H);
   ctx.globalCompositeOperation='lighter';
